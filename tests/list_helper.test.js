@@ -1,5 +1,6 @@
 const { test, describe } = require('node:test')
 const assert = require('node:assert')
+// const expect = require('node:expect')
 const listHelper = require('../utils/list_helper')
 
 const blogs = [
@@ -75,5 +76,16 @@ describe('total likes', () => {
   test('when list has only one blog, equals the likes of that', () => {
     const result = listHelper.totalLikes(listWithOneBlog)
     assert.strictEqual(result, 5)
+  })
+})
+
+describe('favorite blog', () => {
+  test('of many is the one with most likes', () => {
+    const result = listHelper.favoriteBlog(blogs)
+    assert.deepStrictEqual(result, {
+      title: "Canonical string reduction",
+      author: "Edsger W. Dijkstra",
+      likes: 12
+    })
   })
 })
