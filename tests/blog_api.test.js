@@ -1,4 +1,4 @@
-const { test, after, beforeEach } = require('node:test')
+const { test, after, beforeEach, describe } = require('node:test')
 const assert = require('node:assert')
 const mongoose = require('mongoose')
 const supertest = require('supertest')
@@ -8,105 +8,92 @@ const api = supertest(app)
 
 const Blog = require('../models/blog')
 
-const initialBlogs = [
-  {
-    title: 'React patterns',
-    author: 'Michael Chann',
-    url: 'https://reactpatterns.com/',
-    likes: 7
-  },
-  {
-    title: 'Go To Statement Considered Harmful',
-    author: 'Edsger W. Dijkstra',
-    url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-    likes: 5
-  },
-]
+describe('when there is initially some blogs saved', () => {
+  beforeEach(async() => {
+    await Blog.deleteMany({})
+    await Blog.insertMany(helper.initialBlogs)
+  })
 
-beforeEach(async () => {
-  await Blog.deleteMany({})
+  test('blogs are returned as json', async () => {
+    await api
+      .get('/api/blogs')
+      .expect(200)
+      .expect('Content-Type', /application\/json/)
+  })
 
-  const blogObjects = helper.initialBlogs
-    .map(blog => new Blog(blog))
-  const promiseArray = blogObjects.map(blog => blog.save())
-  await Promise.all(promiseArray)
-})
+  describe('viewing a specific blog', () => {
+    test('a specific blog can be viewed', async () => {
+      const blogAtStart = await helper.blogsInDb()
 
-test.only('blogs are returned as json', async () => {
-  await api
-    .get('/api/blogs')
-    .expect(200)
-    .expect('Content-Type', /application\/json/)
-})
+      const blogToView = blogAtStart[0]
 
-test.only('a specific blog can be viewed', async () => {
-  const blogAtStart = await helper.blogsInDb()
+      const resultBlog = await api
+        .get(`/api/blogs/${blogToView.id}`)
+        .expect(200)
+        .expect('Content-Type', /application\/json/)
 
-  const blogToView = blogAtStart[0]
+      assert.deepStrictEqual(resultBlog.body, blogToView)
+    })
+  })
 
-  const resultBlog = await api
-    .get(`/api/blogs/${blogToView.id}`)
-    .expect(200)
-    .expect('Content-Type', /application\/json/)
+  describe('addition of a new blog', () => {
+    test('a valid blog can be added', async () => {
+      const newBlog = {
+        title: 'async/await simplifies making async calls',
+        author: 'Michael Chan',
+        url: 'https://reactpatterns.com/',
+        likes: 7
+      }
 
-  assert.deepStrictEqual(resultBlog.body, blogToView)
-})
+      await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
 
-test.only('a valid blog can be added', async () => {
-  const newBlog = {
-    title: 'async/await simplifies making async calls',
-    author: 'Michael Chan',
-    url: 'https://reactpatterns.com/',
-    likes: 7
-  }
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
 
-  await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(201)
-    .expect('Content-Type', /application\/json/)
+      const contents = blogsAtEnd.map(n => n.title)
+      assert(contents.includes('async/await simplifies making async calls'))
+    })
 
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
+    test('blog without likes will default to 0', async () => {
+      const newBlog= {
+        title: 'async/await simplifies making async calls',
+        author: 'Michael Chan',
+        url: 'https://reactpatterns.com/',
+      }
 
-  const contents = blogsAtEnd.map(n => n.title)
-  assert(contents.includes('async/await simplifies making async calls'))
-})
+      await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
 
-test.only('blog without likes will default to 0', async () => {
-  const newBlog= {
-    title: 'async/await simplifies making async calls',
-    author: 'Michael Chan',
-    url: 'https://reactpatterns.com/',
-  }
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
 
-  await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(201)
-    .expect('Content-Type', /application\/json/)
+      const addedBlog = await blogsAtEnd.find(blog => blog.title === newBlog.title)
+      const likes = addedBlog.likes ? addedBlog.likes : 0
+      assert.strictEqual(likes, 0)
+    })
 
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
+    test('blog without title and url will return 400', async () => {
+      const newBlog = {
+        author: 'Michael Chan',
+        likes: 7
+      }
 
-  const addedBlog = await blogsAtEnd.find(blog => blog.title === newBlog.title)
-  const likes = addedBlog.likes ? addedBlog.likes : 0
-  assert.strictEqual(likes, 0)
-})
+      await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(400)
 
-test.only('blog without title and url will return 400', async () => {
-  const newBlog = {
-    author: 'Michael Chan',
-    likes: 7
-  }
-
-  await api
-    .post('/api/blogs')
-    .send(newBlog)
-    .expect(400)
-
-  const blogsAtEnd = await helper.blogsInDb()
-  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+      const blogsAtEnd = await helper.blogsInDb()
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+    })
+  })
 })
 
 after(async () => {
