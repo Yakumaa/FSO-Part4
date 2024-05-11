@@ -73,6 +73,27 @@ test.only('a valid blog can be added', async () => {
   assert(contents.includes('async/await simplifies making async calls'))
 })
 
+test.only('blog without likes will default to 0', async () => {
+  const newBlog= {
+    title: 'async/await simplifies making async calls',
+    author: 'Michael Chan',
+    url: 'https://reactpatterns.com/',
+  }
+
+  await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(201)
+    .expect('Content-Type', /application\/json/)
+
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
+
+  const addedBlog = await blogsAtEnd.find(blog => blog.title === newBlog.title)
+  const likes = addedBlog.likes ? addedBlog.likes : 0
+  assert.strictEqual(likes, 0)
+})
+
 after(async () => {
   await mongoose.connection.close()
 })
