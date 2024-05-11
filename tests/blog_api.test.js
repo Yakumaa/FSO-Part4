@@ -94,6 +94,21 @@ test.only('blog without likes will default to 0', async () => {
   assert.strictEqual(likes, 0)
 })
 
+test.only('blog without title and url will return 400', async () => {
+  const newBlog = {
+    author: 'Michael Chan',
+    likes: 7
+  }
+
+  await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(400)
+
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
+})
+
 after(async () => {
   await mongoose.connection.close()
 })
