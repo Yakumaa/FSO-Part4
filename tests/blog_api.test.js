@@ -2,7 +2,7 @@ const { test, after } = require('node:test')
 const assert = require('node:assert')
 const mongoose = require('mongoose')
 const supertest = require('supertest')
-// const helper = require('./test_helper')
+const helper = require('./test_helper')
 const app = require('../app')
 const api = supertest(app)
 
@@ -28,6 +28,19 @@ test.only('blogs are returned as json', async () => {
     .expect('Content-Type', /application\/json/)
 })
 
+test.only('a specific blog can be viewed', async () => {
+  const blogAtStart = await helper.blogsInDb()
+
+  const blogToView = blogAtStart[0]
+
+  const resultBlog = await api
+    .get(`/api/blogs/${blogToView.id}`)
+    .expect(200)
+    .expect('Content-Type', /application\/json/)
+
+  assert.deepStrictEqual(resultBlog.body, blogToView)
+})
+
 test.only('a valid blog can be added', async () => {
   const newBlog = {
     title: 'async/await simplifies making async calls',
@@ -42,12 +55,10 @@ test.only('a valid blog can be added', async () => {
     .expect(201)
     .expect('Content-Type', /application\/json/)
 
-  const response = await api.get('/api/blogs')
+  const blogsAtEnd = await helper.blogsInDb()
+  assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length + 1)
 
-  const contents = response.body.map(r => r.title)
-
-  assert.strictEqual(response.body.length, initialBlogs.length + 1)
-
+  const contents = blogsAtEnd.map(n => n.title)
   assert(contents.includes('async/await simplifies making async calls'))
 })
 
