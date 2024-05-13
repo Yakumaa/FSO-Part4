@@ -9,6 +9,8 @@ const bcrypt = require('bcrypt')
 
 const Blog = require('../models/blog')
 const User = require('../models/user')
+const { send } = require('node:process')
+const blog = require('../models/blog')
 
 describe('when there is initially some blogs saved', () => {
   beforeEach(async() => {
@@ -39,6 +41,24 @@ describe('when there is initially some blogs saved', () => {
   })
 
   describe('addition of a new blog', () => {
+    beforeEach(async () => {
+      const newUser = {
+        username: 'root',
+        name: 'Superuser',
+        password: 'sekret'
+      }
+
+      await api
+        .post('/api/users')
+        .send(newUser)
+
+      const result = await api
+        .post('/api/login')
+        .send(newUser)
+
+      headers = { Authorization: `Bearer ${result.body.token}` }
+    })
+
     test('a valid blog can be added', async () => {
       const newBlog = {
         title: 'async/await simplifies making async calls',
@@ -51,6 +71,7 @@ describe('when there is initially some blogs saved', () => {
         .post('/api/blogs')
         .send(newBlog)
         .expect(201)
+        .set(headers)
         .expect('Content-Type', /application\/json/)
 
       const blogsAtEnd = await helper.blogsInDb()
@@ -71,6 +92,7 @@ describe('when there is initially some blogs saved', () => {
         .post('/api/blogs')
         .send(newBlog)
         .expect(201)
+        .set(headers)
         .expect('Content-Type', /application\/json/)
 
       const blogsAtEnd = await helper.blogsInDb()
@@ -90,6 +112,7 @@ describe('when there is initially some blogs saved', () => {
       await api
         .post('/api/blogs')
         .send(newBlog)
+        .set(headers)
         .expect(400)
 
       const blogsAtEnd = await helper.blogsInDb()
@@ -98,12 +121,46 @@ describe('when there is initially some blogs saved', () => {
   })
 
   describe('deletion of a blog', () => {
+    beforeEach(async () => {
+      const newUser = {
+        username: 'root',
+        name: 'Superuser',
+        password: 'sekret'
+      }
+
+      await api
+        .post('/api/users')
+        .send(newUser)
+
+      const result = await api
+        .post('/api/login')
+        .send(newUser)
+
+      headers = { Authorization: `Bearer ${result.body.token}` }
+    })
+
     test('a blog can be deleted', async () => {
+      //create a new blog with user to delete
+      const newBlog = {
+        title: 'async/await simplifies making async calls',
+        author: 'Michael Chan',
+        url: 'https://reactpatterns.com/',
+        likes: 7
+      }
+
+      await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(201)
+        .set(headers)
+        .expect('Content-Type', /application\/json/)
+
       const blogAtStart = await helper.blogsInDb()
-      const blogToDelete = blogAtStart[0]
+      const blogToDelete = blogAtStart.find(blog => blog.title === newBlog.title)
 
       await api
         .delete(`/api/blogs/${blogToDelete.id}`)
+        .set(headers)
         .expect(204)
 
       const blogsAtEnd = await helper.blogsInDb()
@@ -111,7 +168,7 @@ describe('when there is initially some blogs saved', () => {
       const contents = blogsAtEnd.map(blog => blog.title)
       assert(!contents.includes(blogToDelete.title))
 
-      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length - 1)
+      assert.strictEqual(blogsAtEnd.length, helper.initialBlogs.length)
     })
   })
 
